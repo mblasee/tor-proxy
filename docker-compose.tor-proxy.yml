@@ -1,0 +1,16 @@
+services:
+  tor-proxy:
+    build: .
+    container_name: tor-proxy
+    ports:
+      - "9050:9050"  # SOCKS5 proxy
+      - "9051:9051"  # Control port
+    networks:
+      - tor-proxy-network
+    volumes:
+      - ./torrc:/etc/tor/torrc:ro
+    restart: unless-stopped
+
+networks:
+  tor-proxy-network:
+    external: true

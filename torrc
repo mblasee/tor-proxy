@@ -1,0 +1,24 @@
+# 1. SOCKS Proxy Port
+# Listen for SOCKS5 connections on port 9050 on all network interfaces inside the container.
+# 0.0.0.0 means other containers on the same Docker network can connect to it.
+SOCKSPort 0.0.0.0:9050
+
+# 2. Control Port
+# This port is used to send commands to the Tor daemon (e.g., to request a new IP).
+# 0.0.0.0 makes it accessible to other containers on the same Docker network.
+ControlPort 0.0.0.0:9051
+
+# 3. Hashed Control Password
+# This is a hashed password for accessing the Control Port.
+# The value you provided corresponds to the password "password".
+# You can generate your own hash using: tor --hash-password "your_new_password"
+HashedControlPassword <YOUR_OWN_PASSWORD>
+
+# 4. Log to standard output
+# This is essential for Docker so that 'docker logs' works correctly.
+Log notice stdout
+
+# 5. Data Directory
+# Explicitly define where Tor stores its state. This path should match
+# the one created and secured in your Dockerfile.
+DataDirectory /var/lib/tor

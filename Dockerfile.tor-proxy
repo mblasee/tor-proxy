@@ -1,0 +1,30 @@
+FROM alpine:3.22
+
+RUN echo '@edge https://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories
+
+RUN \
+    addgroup -g 1000 -S tor && \
+    adduser -u 1000 -S tor -G tor -s /bin/false -h /var/lib/tor && \
+    \
+    apk upgrade --no-cache && \
+    apk add --no-cache \
+        tor@edge \
+        obfs4proxy@edge \
+        curl \
+    && \
+    mkdir -p /var/lib/tor /var/log/tor && \
+    chown -R tor:tor /var/lib/tor /var/log/tor && \
+    chmod 700 /var/lib/tor && \
+    \
+    tor --version
+
+COPY --chown=tor:tor torrc /etc/tor/torrc
+
+USER tor
+
+EXPOSE 9050 9051
+
+HEALTHCHECK --interval=1m --timeout=15s --start-period=1m --retries=3 \
+    CMD curl --fail --socks5-hostname localhost:9050 -I -L 'https://www.facebookwkhpilnemxj7asaniu7vnjjbiltxjqhye3mhbshg7kx5tfyd.onion/' || exit 1
+
+CMD ["/usr/bin/tor", "-f", "/etc/tor/torrc"]
