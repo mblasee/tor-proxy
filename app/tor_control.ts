@@ -1,10 +1,31 @@
+/**
+ * Connection type for HTTP requests
+ * @enum {string}
+ */
 enum CONNECTION {
+  /** Route requests through Tor proxy */
   TOR = 'TOR',
+  /** Route requests directly without proxy */
   NORMAL = 'NORMAL'
 }
 
 type ResponseType = 'json' | 'text' | 'arrayBuffer' | 'blob';
 
+/**
+ * Controller for managing Tor daemon connections and routing HTTP requests through Tor
+ *
+ * @example
+ * ```ts
+ * const tor = new TorController("127.0.0.1", 9050, 9051, "my-password");
+ *
+ * // Fetch through Tor
+ * const data = await tor.fetchThroughTor("https://api.example.com/data");
+ *
+ * // Change IP
+ * const result = await tor.changeIP();
+ * console.log(`IP changed from ${result.oldIP} to ${result.newIP}`);
+ * ```
+ */
 class TorController {
   private conn: Deno.Conn | null = null;
   private host: string;
@@ -14,6 +35,14 @@ class TorController {
   private proxiedClient: Deno.HttpClient | null = null;
   private publicClient: Deno.HttpClient | null = null;
 
+  /**
+   * Creates a new TorController instance
+   *
+   * @param host - Tor daemon host address
+   * @param socksPort - Tor SOCKS proxy port
+   * @param controlPort - Tor control port for sending commands
+   * @param password - Authentication password for Tor control port
+   */
   constructor(host = "127.0.0.1", socksPort = 9050, controlPort = 9051, password?: string) {
     this.host = host;
     this.controlPort = controlPort;
@@ -54,6 +83,9 @@ class TorController {
     }
   }
 
+  /**
+   * Disconnects from the Tor control port
+   */
   async disconnect(): Promise<void> {
     if (this.conn) {
       this.conn.close();
@@ -113,13 +145,26 @@ class TorController {
     }
   }
 
+  /**
+   * Gets the current public IP address for the specified connection mode
+   *
+   * @param mode - Connection type (TOR or NORMAL)
+   * @returns The current IP address, or null if request fails
+   *
+   * @example
+   * ```ts
+   * const torIP = await tor.getCurrentIP(CONNECTION.TOR);
+   * const publicIP = await tor.getCurrentIP(CONNECTION.NORMAL);
+   * console.log(`Tor IP: ${torIP}, Public IP: ${publicIP}`);
+   * ```
+   */
   async getCurrentIP(mode: CONNECTION = CONNECTION.TOR): Promise<string | null> {
     try {
       const client = this.connectionConfig[mode];
       if (!client) {
         throw new Error(`Client for ${mode} connection not available`);
       }
-      
+
       const req = await fetch('http://httpbin.org/ip', { client });
       const data = await req.json();
       return data.origin;
@@ -129,6 +174,31 @@ class TorController {
     }
   }
 
+  /**
+   * Fetches a resource through the Tor network
+   *
+   * @template T - Expected return type
+   * @param url - The URL to fetch
+   * @param responseType - How to parse the response (json, text, arrayBuffer, or blob)
+   * @param options - Additional fetch options
+   * @returns The parsed response data, or null if request fails
+   *
+   * @example
+   * ```ts
+   * // Fetch JSON data
+   * const data = await tor.fetchThroughTor<{ip: string}>("https://api.ipify.org?format=json");
+   *
+   * // Fetch text
+   * const html = await tor.fetchThroughTor<string>("https://example.com", "text");
+   *
+   * // Fetch with custom options
+   * const result = await tor.fetchThroughTor("https://api.example.com", "json", {
+   *   method: "POST",
+   *   headers: { "Content-Type": "application/json" },
+   *   body: JSON.stringify({ key: "value" })
+   * });
+   * ```
+   */
   async fetchThroughTor<T = unknown>(
     url: string,
     responseType: ResponseType = 'json',
@@ -166,15 +236,60 @@ class TorController {
     }
   }
 
+  /**
+   * Gets the HTTP client configured to route requests through Tor
+   *
+   * @returns The Tor proxied HTTP client, or null if not initialized
+   *
+   * @example
+   * ```ts
+   * const client = tor.getTorClient();
+   * if (client) {
+   *   const response = await fetch("https://example.com", { client });
+   * }
+   * ```
+   */
   getTorClient(): Deno.HttpClient | null {
     return this.proxiedClient;
   }
 
+  /**
+   * Gets the HTTP client configured for direct (non-proxied) requests
+   *
+   * @returns The public HTTP client, or null if not initialized
+   *
+   * @example
+   * ```ts
+   * const client = tor.getPublicClient();
+   * if (client) {
+   *   const response = await fetch("https://example.com", { client });
+   * }
+   * ```
+   */
   getPublicClient(): Deno.HttpClient | null {
     return this.publicClient;
   }
 
-async changeIP(): Promise<{ success: boolean; oldIP: string | null; newIP: string | null; message: string }> {
+  /**
+   * Requests a new Tor circuit to change the exit node IP address
+   *
+   * This method sends a NEWNYM signal to the Tor daemon, which creates a new circuit
+   * with a different exit node, effectively changing your public IP address.
+   *
+   * @returns Object containing success status, old IP, new IP, and a status message
+   *
+   * @example
+   * ```ts
+   * const result = await tor.changeIP();
+   *
+   * if (result.success) {
+   *   console.log(`IP changed from ${result.oldIP} to ${result.newIP}`);
+   * } else {
+   *   console.error(`Failed to change IP: ${result.message}`);
+   * }
+   * ```
+   */
+  async changeIP(): Promise<{ success: boolean; oldIP: string | null; newIP: string | null; message: string }> {
     try {
       const oldIP = await this.getCurrentIP(CONNECTION.TOR);
       console.log("Debug: Got old IP:", oldIP);
