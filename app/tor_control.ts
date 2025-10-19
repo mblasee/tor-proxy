@@ -86,7 +86,7 @@ class TorController {
   /**
    * Disconnects from the Tor control port
    */
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     if (this.conn) {
       this.conn.close();
       this.conn = null;
