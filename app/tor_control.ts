@@ -3,6 +3,8 @@ enum CONNECTION {
   NORMAL = 'NORMAL'
 }
 
+type ResponseType = 'json' | 'text' | 'arrayBuffer' | 'blob';
+
 class TorController {
   private conn: Deno.Conn | null = null;
   private host: string;
@@ -12,11 +14,11 @@ class TorController {
   private proxiedClient: Deno.HttpClient | null = null;
   private publicClient: Deno.HttpClient | null = null;
 
-  constructor(host = "127.0.0.1", socksPort = 9050, controlPort = 9051, password: string) {
+  constructor(host = "127.0.0.1", socksPort = 9050, controlPort = 9051, password?: string) {
     this.host = host;
     this.controlPort = controlPort;
     this.socksPort = socksPort;
-    this.password = password;
+    this.password = password ?? "";
     
     try {
       this.proxiedClient = Deno.createHttpClient({
@@ -125,6 +127,51 @@ class TorController {
       console.error(`Error getting IP for ${mode}:`, error);
       return null;
     }
+  }
+
+  async fetchThroughTor<T = unknown>(
+    url: string,
+    responseType: ResponseType = 'json',
+    options?: RequestInit
+  ): Promise<T | null> {
+    try {
+      if (!this.proxiedClient) {
+        throw new Error("Tor proxied client not available");
+      }
+
+      const response = await fetch(url, {
+        client: this.proxiedClient,
+        ...options
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      switch (responseType) {
+        case 'json':
+          return await response.json() as T;
+        case 'text':
+          return await response.text() as T;
+        case 'arrayBuffer':
+          return await response.arrayBuffer() as T;
+        case 'blob':
+          return await response.blob() as T;
+        default:
+          throw new Error(`Unsupported response type: ${responseType}`);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${url} through Tor:`, error);
+      return null;
+    }
+  }
+
+  getTorClient(): Deno.HttpClient | null {
+    return this.proxiedClient;
+  }
+
+  getPublicClient(): Deno.HttpClient | null {
+    return this.publicClient;
   }
 
 async changeIP(): Promise<{ success: boolean; oldIP: string | null; newIP: string | null; message: string }> {
