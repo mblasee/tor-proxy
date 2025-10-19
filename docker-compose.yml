@@ -1,17 +1,16 @@
 services:
-  mav-scrap:
-    image: denoland/deno:2.3.6
-    container_name: mav-scrap
-    volumes:
-      - ./app:/app
-    working_dir: /app
-    command: deno run --allow-net --allow-env --watch main.ts
-    environment:
-      - TOR_PROXY_URL=socks5h://tor-proxy:9050
+  tor-proxy:
+    build: .
+    container_name: tor-proxy
+    ports:
+      - "9050:9050"  # SOCKS5 proxy
+      - "9051:9051"  # Control port
     networks:
       - tor-proxy-network
+    volumes:
+      - ./torrc:/etc/tor/torrc:ro
+    restart: unless-stopped
 
 networks:
   tor-proxy-network:
     external: true
-
