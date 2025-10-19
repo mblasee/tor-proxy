@@ -62,3 +62,20 @@ docker exec -it tor-proxy curl https://check.torproject.org/api/ip
 - Rate limiting (10 second cooldown)
 - Circuit event monitoring
 - Automatic HTTP client recreation
+
+## Publishing to JSR
+
+This package is automatically published to JSR when a new version tag is pushed.
+
+### To publish a new version:
+
+1. Update the version in `app/deno.json`
+2. Commit your changes
+3. Create and push a git tag:
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+4. GitHub Actions will automatically publish to JSR using OIDC authentication
+
+The package is available at: `jsr:@balazs/tor-proxy-deno`
